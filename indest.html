@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<!-- sheetjs (C) SheetJS https://sheetjs.com -->
+<!-- vim: set ts=2: -->
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="robots" content="noindex" />
+  <title>statistic best</title>
+  <style>
+    #drop {
+      border: 2px dashed #bbb;
+      -moz-border-radius: 5px;
+      -webkit-border-radius: 5px;
+      border-radius: 5px;
+      padding: 25px;
+      text-align: center;
+      font: 20pt bold, "Vollkorn";
+      color: #00AFBB;
+      background-color: #ddd;
+      margin: 10px;
+    }
+
+    /* Begin: from BootStrap */
+    btn:not(:disabled):not(.disabled) {
+      cursor: pointer;
+    }
+
+    [type=reset],
+    [type=submit],
+    button,
+    html [type=button] {
+      -webkit-appearance: button;
+    }
+
+   .btn-primary {
+      color: #fff;
+      background-color: #007bff;
+      border-color: #007bff;
+    }
+
+   .btn-outline-primary {
+      color: #007bff;
+      background-color: transparent;
+      background-image: none;
+      border-color: #007bff;
+      border-radius: .7rem;
+    }
+
+   .btn-secondary {
+      color: #fff;
+      background-color: #6c757d;
+      border-color: #6c757d;
+    }
+
+   .btn {
+      display: inline-block;
+      font-weight: 400;
+      text-align: center;
+      white-space: nowrap;
+      vertical-align: middle;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      border: 1px solid transparent;
+      padding: .375rem .75rem;
+      font-size: 1rem;
+      line-height: 1.5;
+      border-radius: .7rem;
+      transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+    }
+
+   .card {
+      position: relative;
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: flex;
+      -webkit-box-orient: vertical;
+      -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+      flex-direction: column;
+      min-width: 0;
+      word-wrap: break-word;
+      background-color: #fff;
+      background-clip: border-box;
+      border: 1px solid rgba(0, 0, 0, .125);
+      border-radius: .25rem;
+      margin: 10px;
+      padding: 10px;
+      overflow: hidden;
+    }
+
+   .card-title {
+      margin-bottom: .75rem;
+      text-align: justify;
+    }
+
+   .h5 {
+      font-size: 1rem;
+      font-weight: bold;
+    }
+    /*End: from Bootstrap*/
+
+   .row {
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: flex;
+      -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+      padding-top: 1rem;
+    }
+
+   .col {
+      -ms-flex-preferred-size: 0;
+      flex-basis: 0;
+      -webkit-box-flex: 1;
+      -ms-flex-positive: 1;
+      flex-grow: 1;
+      max-width: 100%;
+    }
+  </style>
+  <!-- x-spreadsheet stylesheet -->
+  <link rel="stylesheet" href="https://unpkg.com/x-data-spreadsheet/dist/xspreadsheet.css" />
+</head>
+
+<body>
+  <div id="drop">拖拽表格文件到这里</div>
+  <div style="text-align: center; padding: 10px">
+    <input type="file" value="选择文件" name="xlfile" id="xlf" class="btn btn-secondary" />
+    &rarr;
+    <input type="button" value="计算RR及置信区间" onclick="do_stat()" id="stat" class="btn btn-primary" disabled />
+  </div>
+  <div class="row">
+    <div class="col card">
+      <div class="card-title row">
+        <div class="col">
+          <span class="h5">输入数据</span>
+        </div>
+        <div class="col" style="text-align: end;">
+          <input type="submit" value="导出表格" id="xport" class="btn-outline-primary" onclick="export_data();" />
+        </div>
+      </div>
+      <div id="htmlout"></div>
+    </div>
+    <div class="col card">
+      <div class="card-title row">
+        <div class="col">
+          <span class="h5">统计结果</span>
+        </div>
+        <div class="col" style="text-align: end;">
+          <input type="submit" value="导出表格" id="xport-stat" class="btn-outline-primary" onclick="export_stat();" />
+        </div>
+      </div>
+      <div id="statout"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/danfojs@1.1.2/lib/bundle.min.js"></script>
+  <script src="https://unpkg.com/x-data-spreadsheet/dist/xspreadsheet.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/shim.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xspreadsheet/xlsxspread.min.js"></script>
+  <script src='https://unpkg.com/simple-statistics@7.8.8/dist/simple-statistics.min.js'></script>
+  <script src='https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js'></script>
+  <script>
+    /* 表格中数据导入DanfoJS的Dataframe中，便于行、列操作 */
+    function ws_to_df(ws) {
+      const aoo = XLSX.utils.sheet_to_json(ws);
+      return new dfd.DataFrame(aoo);
+    }
+
+    /* data frame */
+    var df_ = null;
+
+    /*jshint browser:true */
+    /* eslint-env browser */
+    /* eslint no-use-before-define:0 */
+    /*global Uint8Array, Uint16Array, ArrayBuffer */
+    /*global XLSX */
+
+    /* 数据表格 */
+    var HTMLOUT = document.getElementById('htmlout');
+    var xspr = x_spreadsheet(HTMLOUT, "{\"componentoptions\":{\"toolbar\":\"false\"}}");
+    /* 统计结果输出表格  */
+    var STATOUT = document.getElementById('statout');
+    var xspr_stat = x_spreadsheet(STATOUT);
+
+    var process_wb = (function () {
+      var XPORT = document.getElementById('xport');
+
+      return function process_wb(wb) {
+        /* convert to x-spreadsheet form */
+        var data = stox(wb);
+        console.log(data);
+        /* update x-spreadsheet */
+        xspr.loadData(data);
+        XPORT.disabled = false;
+      };
+    })();
+
+    /* 读文件 */
+    var do_file = (function () {
+      return function do_file(files) {
+        var f = files[0];
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var data = e.target.result;
+          process_wb(XLSX.read(data, { dense: true }));
+        };
+        reader.readAsArrayBuffer(f);
+      };
+    })();
+
+    /* 支持拖拽 */
+    (function () {
+      var drop = document.getElementById('drop');
+      if (!drop.addEventListener) return;
+
+      function handleDrop(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        do_file(e.dataTransfer.files);
+      }
+
+      function handleDragover(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }
+
+      drop.addEventListener('dragenter', handleDragover, false);
+      drop.addEventListener('dragover', handleDragover, false);
+      drop.addEventListener('drop', handleDrop, false);
+    })();
+
+    (function () {
+      var xlf = document.getElementById('xlf');
+      if (!xlf.addEventListener) return;
+      function handleFile(e) { do_file(e.target.files); }
+      xlf.addEventListener('change', handleFile, false);
+    })();
+
+    /* 初始化结果窗口格式 */
+    (function () {
+      str = '[{"name":"sheet1","freeze":"A1","styles":[{"border":{"top":["thin","#000"]}},{"border":{"top":["thin","#000"],"bottom":["thin","#000"]}},{"border":{"bottom":["thin","#000"]}},{"border":{"top":["thin","#000"],"bottom":["thin","#000"]},"font":{"italic":true}}],"merges":[],"rows":{"0":{"cells":{"0":{"text":"相对危险度 (RR) 结果"},"1":{"text":""},"2":{"text":""},"3":{"text":""},"4":{"text":""},"5":{"text":""},"6":{"text":""}}},"1":{"cells":{"0":{"text":""},"1":{"text":""},"2":{"text":""},"3":{"text":""},"4":{"text":""},"5":{"text":""},"6":{"text":""}}},"2":{"cells":{"0":{"text":"相对危险度 (RR) 估计值"},"1":{"text":""},"2":{"text":""},"3":{"text":""},"4":{"text":""},"5":{"text":""},"6":{"text":""}}},"3":{"cells":{"0":{"text":"总体相对危险度的 95% 可信区间下限"},"1":{"text":""},"2":{"text":""},"3":{"text":""},"4":{"text":""},"5":{"text":""},"6":{"text":""}}},"4":{"cells":{"0":{"text":"总体相对危险度的 95% 可信区间上限"},"1":{"text":""},"2":{"text":""},"3":{"text":""},"4":{"text":""},"5":{"text":""},"6":{"text":""}}},"len":100},"cols":{"len":26},"validations":[],"autofilter":{}}]';
+      var data = JSON.parse(str)
+      /* update x-spreadsheet */
+      xspr_stat.loadData(data);
+    })();
+
+    function export_data() {
+      var new_wb = xtos(xspr.getData());
+
+      /* write file and trigger a download */
+      XLSX.writeFile(new_wb, 'data-export.xlsx', {});
+    }
+
+    function export_stat() {
+      var data = JSON.stringify(xspr_stat.getData());
+      var new_wb = XLSX.utils.json_to_sheet(JSON.parse(data));
+
+      /* write file and trigger a download */
+      XLSX.writeFile(new_wb,'stat-export.xlsx', {});
+    }
+
+    document.getElementById("stat").disabled = false;
+    function do_stat() {
+      // 这里直接使用给定的数据计算相对危险度及置信区间，不依赖导入的文件数据
+      var a = 104;
+      var L1 = 43248;
+      var b = 12;
+      var L2 = 10673;
+
+      // 计算相对危险度
+      var RR_hat = (a / L1) / (b / L2);
+
+      // 计算 Ka
+      var Ka = ((a * (L1 + L2) - (a + b) * L1) ** 2) / ((a + b) * L1 * L2);
+
+      // 计算 95% 置信区间
+      var z = jStat.normal().ppf(0.975);
+      var lower_bound = Math.pow(RR_hat, 1 - z / Math.sqrt(Ka));
+      var upper_bound = Math.pow(RR_hat, 1 + z / Math.sqrt(Ka));
+
+      // 将结果填充到统计结果表格中
+      var resultData = xspr_stat.getData()[0];
+      resultData.rows[2].cells[1].text = RR_hat;
+      resultData.rows[3].cells[1].text = lower_bound;
+      resultData.rows[4].cells[1].text = upper_bound;
+
+      xspr_stat.loadData([resultData]);
+    }
+  </script>
+</body>
+
+</html>
